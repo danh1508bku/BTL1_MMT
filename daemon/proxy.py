@@ -82,7 +82,8 @@ def resolve_routing_policy(hostname, routes):
             # Use default fallback
             proxy_host = '127.0.0.1'
             proxy_port = '9000'
-        elif len(proxy_map) == 1:  # ✅ FIXED: was 'value'
+            
+        elif len(proxy_map) == 1:  #  was 'value'
             proxy_host, proxy_port = proxy_map[0].split(":", 1)
         else:
             # TODO: implement round-robin or other policies
@@ -180,7 +181,7 @@ def run_proxy(ip, port, routes):
         
         while True:
             conn, addr = proxy.accept()
-            # ✅ FIXED: Implement multi-threading
+            #  Implement multi-threading
             client_thread = threading.Thread(
                 target=handle_client,
                 args=(ip, port, conn, addr, routes)

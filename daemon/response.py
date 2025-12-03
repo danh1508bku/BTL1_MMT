@@ -1,3 +1,25 @@
+#
+# Copyright (C) 2025 pdnguyen of HCMC University of Technology VNU-HCM.
+# All rights reserved.
+# This file is part of the CO3093/CO3094 course.
+#
+# WeApRous release
+#
+# The authors hereby grant to Licensee personal permission to use
+# and modify the Licensed Source Code for the sole purpose of studying
+# while attending the course
+#
+
+"""
+daemon.response
+~~~~~~~~~~~~~~~~~
+
+This module provides a :class: `Response <Response>` object to manage and persist 
+response settings (cookies, auth, proxies), and to construct HTTP responses
+based on incoming requests. 
+
+The current version supports MIME type detection, content loading and header formatting
+"""
 import datetime
 import os
 import mimetypes
@@ -6,7 +28,36 @@ from .dictionary import CaseInsensitiveDict
 BASE_DIR = ""
 
 class Response():   
+    """The :class:`Response <Response>` object, which contains a
+    server's response to an HTTP request.
 
+    Instances are generated from a :class:`Request <Request>` object, and
+    should not be instantiated manually; doing so may produce undesirable
+    effects.
+
+    :class:`Response <Response>` object encapsulates headers, content, 
+    status code, cookies, and metadata related to the request-response cycle.
+    It is used to construct and serve HTTP responses in a custom web server.
+
+    :attrs status_code (int): HTTP status code (e.g., 200, 404).
+    :attrs headers (dict): dictionary of response headers.
+    :attrs url (str): url of the response.
+    :attrsencoding (str): encoding used for decoding response content.
+    :attrs history (list): list of previous Response objects (for redirects).
+    :attrs reason (str): textual reason for the status code (e.g., "OK", "Not Found").
+    :attrs cookies (CaseInsensitiveDict): response cookies.
+    :attrs elapsed (datetime.timedelta): time taken to complete the request.
+    :attrs request (PreparedRequest): the original request object.
+
+    Usage::
+
+      >>> import Response
+      >>> resp = Response()
+      >>> resp.build_response(req)
+      >>> resp
+      <Response>
+    """
+    
     __attrs__ = [
         "_content", "_header", "status_code", "method",
         "headers", "url", "history", "encoding", "reason",
@@ -14,25 +65,62 @@ class Response():
     ]
 
     def __init__(self, request=None):
+        """
+        Initializes a new :class:`Response <Response>` object.
+
+        : params request : The originating request object.
+        """
         self._content = b""
         self._content_consumed = False
         self._next = None
+
+        #: Integer Code of responded HTTP Status, e.g. 404 or 200.
         self.status_code = None
+
+        #: Case-insensitive Dictionary of Response Headers.
+        #: For example, ``headers['content-type']`` will return the
+        #: value of a ``'Content-Type'`` response header.        
         self.headers = {}
+
+        #: URL location of Response.
         self.url = None
+
+        #: Encoding to decode with when accessing response text.
         self.encoding = None
+
+        #: A list of :class:`Response <Response>` objects from
+        #: the history of the Request.
         self.history = []
+
+        #: Textual reason of responded HTTP Status, e.g. "Not Found" or "OK".
         self.reason = ""
+
+        #: A of Cookies the response headers.
         self.cookies = CaseInsensitiveDict()
+
+        #: The amount of time elapsed between sending the request
         self.elapsed = datetime.timedelta(0)
+
+        #: The :class:`PreparedRequest <PreparedRequest>` object to which this
+        #: is a response.
         self.request = None
 
-        # flags do HttpAdapter set
+        # Flags do HttpAdapter set
         self.unauthorized = False
         self.set_auth_cookie = False
-        self.redirect_to = None  # ✅ NEW: Redirect location
+
+        # Redirect location
+        self.redirect_to = None  
 
     def get_mime_type(self, path):
+        """
+        Determines the MIME type of a file based on its path.
+
+        "params path (str): Path to the file.
+
+        :rtype str: MIME type string (e.g., 'text/html', 'image/png').
+        """
+
         try:
             mime_type, _ = mimetypes.guess_type(path)
         except Exception:
@@ -40,7 +128,20 @@ class Response():
         return mime_type or 'application/octet-stream'
 
     def prepare_content_type(self, mime_type='text/html'):
+        """
+        Prepares the Content-Type header and determines the base directory
+        for serving the file based on its MIME type.
+
+        :params mime_type (str): MIME type of the requested resource.
+
+        :rtype str: Base directory path for locating the resource.
+
+        :raises ValueError: If the MIME type is unsupported.
+        """
+
         base_dir = ""
+
+        # Processing mime_type based on main_type and sub_type
         main_type, sub_type = mime_type.split('/', 1)
         print("[Response] processing MIME main_type={} sub_type={}".format(main_type, sub_type))
 
@@ -50,21 +151,54 @@ class Response():
                 base_dir = BASE_DIR + "static/"
             elif sub_type == 'html':
                 base_dir = BASE_DIR + "www/"
+            elif sub_type in ["csv","xml"]:
+                base_dir = BASE_DIR + "static/"
+
         elif main_type == 'image':
             base_dir = BASE_DIR + "static/"
             self.headers['Content-Type'] = 'image/{}'.format(sub_type)
+
         elif main_type == 'application':
             base_dir = BASE_DIR + "apps/"
             self.headers['Content-Type'] = 'application/{}'.format(sub_type)
+        #
+        #  TODO: process other mime_type
+        #        application/xml       
+        #        application/zip
+        #        ...
+        #        text/csv
+        #        text/xml
+        #        ...
+        #        video/mp4 
+        #        video/mpeg
+        #        ...
+        #        
+        elif main_type == 'video':
+            base_dir = BASE_DIR + "static/"
+            self.headers['Content-Type'] = 'video/{}'.format(sub_type)
+        
         else:
             raise ValueError("Invalid MIME type")
 
         return base_dir
 
     def build_content(self, path, base_dir):
-        filepath = os.path.join(base_dir, path.lstrip('/'))
-        print("[Response] serving the object at location {}".format(filepath))
+        """
+        Loads the objects file from storage space.
 
+        :params path (str): relative path to the file.
+        :params base_dir (str): base directory where the file is located.
+
+        :rtype tuple: (boolean, int, bytes) representing success status, content length and content data.
+        """
+
+        filepath = os.path.join(base_dir, path.lstrip('/'))
+
+        print("[Response] serving the object at location {}".format(filepath))
+            #
+            #  TODO: implement the step of fetch the object file
+            #        store in the return value of content
+            #
         if not os.path.exists(filepath):
             print("[Response] File not found: {}".format(filepath))
             return False, 13, b"404 Not Found"
@@ -73,13 +207,19 @@ class Response():
             with open(filepath, "rb") as f:
                 content = f.read()
             return True, len(content), content
+        
         except Exception as e:
             print("[Response] Error reading file: {}".format(e))
             return False, 13, b"404 Not Found"
 
-    def build_rfc6265_cookie(self, name, value, max_age=3600, path="/", 
-                             secure=False, httponly=True, samesite="Lax"):
-        """RFC 6265 Compliant Cookie"""
+    def build_rfc6265_cookie(self, 
+        name, value, max_age=3600, path="/", 
+        secure=False, httponly=True, samesite="Lax"):
+
+        """
+        RFC 6265 Compliant Cookie
+        """
+
         cookie_parts = ["{}={}".format(name, value)]
         
         if max_age:
@@ -100,21 +240,24 @@ class Response():
 
     def build_redirect_response(self):
         """
-        ✅ Build HTTP 302 Found (Redirect) Response
+        Build HTTP 302 Found (Redirect) Response
         
         RFC 7231 Section 6.4.3: 302 Found
         The target resource resides temporarily under a different URI.
         """
-        redirect_html = """<!DOCTYPE html>
-<html>
-<head>
-    <meta http-equiv="refresh" content="0; url={}">
-    <title>Redirecting...</title>
-</head>
-<body>
-    <p>Redirecting to <a href="{}">{}</a>...</p>
-</body>
-</html>""".format(self.redirect_to, self.redirect_to, self.redirect_to)
+
+        redirect_html = """
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <meta http-equiv="refresh" content="0; url={}">
+                <title>Redirecting...</title>
+            </head>
+            <body>
+                <p>Redirecting to <a href="{}">{}</a>...</p>
+            </body>
+        </html>
+        """.format(self.redirect_to, self.redirect_to, self.redirect_to)
 
         self._content = redirect_html.encode('utf-8')
         self.status_code = 302
@@ -130,7 +273,7 @@ class Response():
             "Connection: close",
         ]
 
-        # ✅ Set cookie on redirect
+        # Set cookie on redirect
         if self.set_auth_cookie:
             cookie = self.build_rfc6265_cookie(
                 name="auth", value="true", max_age=3600,
@@ -144,9 +287,16 @@ class Response():
         return ("\r\n".join(header_lines)).encode("utf-8") + self._content
 
     def build_response_header(self, request):
-        """Standard response header builder"""
+        """
+        Standard response header builder
+        """
         status_line = "HTTP/1.1 200 OK"
+
+        self.headers["Access-Control-Allow-Origin"] = "*"
+        self.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        self.headers["Access-Control-Allow-Headers"] = "Content-Type"
         
+     
         if self.unauthorized:
             status_line = "HTTP/1.1 401 Unauthorized"
             self.status_code = 401
@@ -195,8 +345,13 @@ class Response():
 
     def build_response(self, request):
         """
-        ✅ Main response builder with redirect support
+        Builds a full HTTP response including headers and content based on the request.
+
+        :params request (class:`Request <Request>`): incoming request object.
+
+        :rtype bytes: complete HTTP response using prepared headers and content.
         """
+
         # Handle redirect first (highest priority)
         if self.redirect_to:
             print("[Response] Redirecting to: {}".format(self.redirect_to))
@@ -222,7 +377,9 @@ class Response():
                 base_dir = self.prepare_content_type("text/html")
             elif mime_type == "text/css":
                 base_dir = self.prepare_content_type("text/css")
-            elif mime_type.startswith("image/"):
+            elif mime_type.startswith("image/") or mime_type.startswith("video/"):
+                base_dir = self.prepare_content_type(mime_type)
+            elif mime_type.startswith("application/"):
                 base_dir = self.prepare_content_type(mime_type)
             else:
                 print("[Response] Unsupported MIME type: {}".format(mime_type))

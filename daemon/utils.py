@@ -10,7 +10,8 @@
 # while attending the course
 #
 
-from urlparse import urlparse
+from urllib.parse import urlparse
+from urllib.parse import unquote
 
 def get_auth_from_url(url):
     """Given a url with authentication components, extract them into a tuple of
@@ -26,3 +27,10 @@ def get_auth_from_url(url):
         auth = ("", "")
 
     return auth
+
+def handle_options(headers=None, body=None, cookies=None, client_addr=None):
+    return {
+        'status': 204,
+        'body': '',
+        'content_type': 'application/json'
+    }

@@ -1,12 +1,43 @@
-# ============================================
-# request.py - RFC 6265 Compliant Cookie Parsing
-# ============================================
+#
+# Copyright (C) 2025 pdnguyen of HCMC University of Technology VNU-HCM.
+# All rights reserved.
+# This file is part of the CO3093/CO3094 course.
+#
+# WeApRous release
+#
+# The authors hereby grant to Licensee personal permission to use
+# and modify the Licensed Source Code for the sole purpose of studying
+# while attending the course
+#
 
+"""
+daemon.request
+~~~~~~~~~~~~~~~~~
+
+This module provides a Request object to manage and persist 
+request settings (cookies, auth, proxies).
+"""
 from .dictionary import CaseInsensitiveDict
 import urllib
 import re
 
 class Request():
+    """The fully mutable "class" `Request <Request>` object,
+    containing the exact bytes that will be sent to the server.
+
+    Instances are generated from a "class" `Request <Request>` object, and
+    should not be instantiated manually; doing so may produce undesirable
+    effects.
+
+    Usage::
+
+      >>> import deamon.request
+      >>> req = request.Request()
+      ## Incoming message obtain aka. incoming_msg
+      >>> r = req.prepare(incoming_msg)
+      >>> r
+      <Request>
+    """
 
     __attrs__ = [
         "method", "url", "headers", "body", "reason",
@@ -48,6 +79,7 @@ class Request():
             return None, None, None
              
     def prepare_headers(self, request):
+        """Prepares the given HTTP headers."""
         lines = request.split('\r\n')
         headers = {}
         for line in lines[1:]:
@@ -58,7 +90,7 @@ class Request():
 
     def parse_rfc6265_cookies(self, cookie_header):
         """
-        ✅ RFC 6265 Section 4.2 - Cookie Header Parsing
+        RFC 6265 Section 4.2 - Cookie Header Parsing
         
         Properly handles:
         - Multiple cookies separated by semicolons
@@ -70,7 +102,8 @@ class Request():
         if not cookie_header:
             return cookies
         
-        # RFC 6265 Section 4.2.1: cookie-string = cookie-pair *( ";" SP cookie-pair )
+        # RFC 6265 Section 4.2.1: 
+        # cookie-string = cookie-pair *( ";" SP cookie-pair )
         pairs = cookie_header.split(";")
         
         for pair in pairs:
@@ -97,8 +130,8 @@ class Request():
     
     def is_valid_cookie_name(self, name):
         """
-        ✅ RFC 6265 Section 4.1.1 - Cookie Name Validation
-        cookie-name must not contain: ( ) < > @ , ; : \ " / [ ] ? = { } SP HT
+        RFC 6265 Section 4.1.1 - Cookie Name Validation
+        The cookie-name must not contain these tokens: ( ) < > @ , ; : \ " / [ ] ? = { } SP HT
         """
         if not name:
             return False
@@ -121,7 +154,7 @@ class Request():
 
         self.headers = self.prepare_headers(request)
 
-        # ✅ RFC 6265 Compliant Cookie Parsing
+        # RFC 6265 Compliant Cookie Parsing
         cookie_header = self.headers.get("cookie", "")
         self.cookies = self.parse_rfc6265_cookies(cookie_header)
         
