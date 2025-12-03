@@ -24,7 +24,7 @@ from .request import Request
 from .response import Response
 from .dictionary import CaseInsensitiveDict
 from urllib.parse import unquote
-
+import json
 class HttpAdapter:
     """
     A mutable :class:`HTTP adapter <HTTP adapter>` for managing client connections
@@ -98,11 +98,57 @@ class HttpAdapter:
         # Response handler
         resp = self.response
 
-
         msg = conn.recv(2048).decode()
         req.prepare(msg, routes)
         
-        # URL REWRITING
+        # ============== CHECK FOR RESTful ROUTE HANDLER FIRST ==============
+        route_key = (req.method, req.path)
+        if route_key in routes:
+            handler = routes[route_key]
+            
+            try:
+                # Call the route handler with proper parameters
+                result = handler(
+                    headers=req.headers,
+                    body=req.body,
+                    cookies=req.cookies,
+                    client_addr=addr
+                )
+                
+                # If handler returns a dict with status/body, build response
+                if isinstance(result, dict):
+                    status = result.get('status', 200)
+                    body = result.get('body', '')
+                    content_type = result.get('content_type', 'application/json')
+                    
+                    # Set response properties
+                    resp.status_code = status
+                    resp._content = body.encode('utf-8') if isinstance(body, str) else body
+                    resp.headers['Content-Type'] = content_type
+                    
+                    # Build and send response
+                    resp._header = resp.build_response_header(req)
+                    response_bytes = resp._header + resp._content
+                    conn.sendall(response_bytes)
+                    conn.close()
+                    return
+                    
+            except Exception as e:
+                print(f"[HttpAdapter] Error calling handler for {route_key}: {e}")
+                import traceback
+                traceback.print_exc()
+                
+                # Send 500 Internal Server Error
+                resp.status_code = 500
+                resp._content = json.dumps({"Error": "Internal Server Error", "Details": str(e)}).encode('utf-8')
+                resp.headers['Content-Type'] = 'application/json'
+                resp._header = resp.build_response_header(req)
+                conn.sendall(resp._header + resp._content)
+                conn.close()
+                return
+        # ============== END OF RESTful ROUTE HANDLER ==============
+        
+        # URL REWRITING (for static files only)
         rewrite_map = {
             "/login": "/login.html",
             "/index": "/index.html",
@@ -112,7 +158,7 @@ class HttpAdapter:
         if req.method == "GET" and req.path in rewrite_map:
             req.path = rewrite_map[req.path]
 
-        # TASK 1A — LOGIN WITH REDIRECT
+        # TASK 1A – LOGIN WITH REDIRECT
         if req.method == "POST" and req.path == "/login":
             body = req.body or ""
             params = dict(x.split("=") for x in body.split("&") if "=" in x)
@@ -127,13 +173,13 @@ class HttpAdapter:
             else:
                 resp.unauthorized = True
 
-        # TASK 1B — COOKIE ACCESS CONTROL
+        # TASK 1B – COOKIE ACCESS CONTROL
         elif req.method == "GET" and (req.path == "/" or req.path == "/index.html"):
             cookie = req.cookies.get("auth", None)
             if cookie != "true":
                 resp.unauthorized = True
 
-        # BUILD RESPONSE
+        # BUILD RESPONSE (for static files)
         response_bytes = resp.build_response(req)
         conn.sendall(response_bytes)
         conn.close()

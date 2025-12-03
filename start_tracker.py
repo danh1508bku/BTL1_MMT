@@ -192,23 +192,37 @@ options_routes = ['/submit-info', '/add-list', '/get-list', '/logout-tracker']
 for route in options_routes:
     app.route(route, methods=['OPTIONS'])(handle_options)
 
-def add_or_update_peer(ip, port):
+def add_or_update_peer(username, ip, port):  # ← Thêm username
     """
     Add a new peer or update an existing peer's status in the global peer list.
     Safe under concurrency due to peers_lock.
     """
-
     peer_key = f"{ip}:{port}"
     now = time.time()
 
     with peers_lock:
         peers[peer_key] = {
+            "username": username,  # ← Lưu username
             "ip": ip,
             "port": port,
             "timestamp": now
         }
+        
+        # Cập nhật active_peers_list
+        global active_peers_list
+        # Xóa peer cũ nếu trùng ip:port
+        active_peers_list = [
+            p for p in active_peers_list 
+            if not (p.get("ip") == ip and p.get("port") == port)
+        ]
+        # Thêm peer mới
+        active_peers_list.append({
+            "username": username,
+            "ip": ip,
+            "port": port
+        })
     
-    print(f"[Tracker] Peer updated: {peer_key}")
+    print(f"[Tracker] Peer updated: {username} at {peer_key}")
     return peers[peer_key]
 
 if __name__ == "__main__":
