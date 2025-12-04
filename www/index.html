@@ -1,21 +1,416 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="vi">
 <head>
-    <title>bksysnet@hcmut welcome</title>
-
-    <meta charset="utf-8" />
-    <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="css/styles.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hybrid P2P Chat Application</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .chat-box { height: 400px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; background: #f9f9f9; }
+        .message-in { color: blue; font-weight: bold; }
+        .message-out { color: green; text-align: right; }
+        .system-msg { color: gray; font-style: italic; font-size: 0.9em; }
+        .section-card { margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    </style>
 </head>
+<body class="bg-light p-3">
 
-<body>
-<div>
-    <h1>bksysnet@hcmut  Domain</h1>
-    <p>This domain is for use in illustrative examples in documents.
-    </p>
-  
-       <img src="images/welcome.png" alt="bksysnet at HCMUT" width="500" height="600">  
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Hybrid P2P Chat (Assignment 1)</h2>
+        <span class="badge bg-secondary" id="serverInfoBadge">Detecting...</span>
+    </div>
+
+    <div class="card section-card">
+        <div class="card-header bg-primary text-white">1. Trạng thái & Đăng ký Tracker</div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label>Username (từ Cookie):</label>
+                    <input type="text" id="myUsername" class="form-control" placeholder="Nhập username">
+                </div>
+                <div class="col-md-3">
+                    <label>Port hiện tại:</label>
+                    <input type="text" id="myPort" class="form-control" readonly>
+                </div>
+                <div class="col-md-4">
+                    <label>Địa chỉ Tracker:</label>
+                    <input type="text" id="trackerUrl" class="form-control" value="http://localhost:9000">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-success w-100" onclick="registerToTracker()">Kích hoạt Online</button>
+                </div>
+            </div>
+            <small class="text-muted mt-2 d-block">Hệ thống tự động nhận diện Username và Port từ phiên đăng nhập của bạn.</small>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card section-card">
+                <div class="card-header bg-info text-white d-flex justify-content-between">
+                    <span>2. Danh sách Online (Tracker)</span>
+                    <button class="btn btn-sm btn-light" onclick="getPeerList()">Làm mới</button>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush" id="peerListDisplay">
+                        <li class="list-group-item text-center text-muted">Chưa lấy danh sách...</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card section-card">
+                <div class="card-header bg-secondary text-white">3. Kết nối P2P</div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <input type="text" id="connectUsername" class="form-control mb-1" placeholder="Username đích">
+                        <input type="text" id="connectIP" class="form-control mb-1" placeholder="IP">
+                        <input type="number" id="connectPort" class="form-control mb-1" placeholder="Port">
+                        <button class="btn btn-warning w-100" onclick="connectPeer()">Bắt tay (Handshake)</button>
+                    </div>
+                </div>
+            </div>
+
+             <div class="card section-card">
+                <div class="card-header bg-dark text-white">4. Channels (Nhóm)</div>
+                <div class="card-body">
+                    <div class="input-group mb-2">
+                        <input type="text" id="channelName" class="form-control" placeholder="Tên phòng (VD: Room1)">
+                        <button class="btn btn-outline-secondary" onclick="joinChannel()">Join/Create</button>
+                    </div>
+                    <h6>Đã tham gia:</h6>
+                    <ul id="myChannels" class="list-group"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card section-card h-100">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <span>5. Hộp thoại Chat</span>
+                    <div>
+                        <button class="btn btn-sm btn-light" onclick="fetchMessages()">Check Mail</button>
+                        <span class="badge bg-danger" id="autoCheckBadge">Auto-sync</span>
+                    </div>
+                </div>
+                
+                <div class="card-body d-flex flex-column">
+                    <div id="chatWindow" class="chat-box mb-3 flex-grow-1">
+                        <div class="system-msg text-center">--- Hệ thống sẵn sàng ---</div>
+                    </div>
+
+                    <div class="border-top pt-3">
+                        <div class="row g-2">
+                            <div class="col-md-3">
+                                <select id="msgType" class="form-select" onchange="toggleTargetInput()">
+                                    <option value="private">Private</option>
+                                    <option value="channel">Channel</option>
+                                    <option value="broadcast">Broadcast</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <input type="text" id="targetName" class="form-control" placeholder="Người nhận">
+                            </div>
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <input type="text" id="messageInput" class="form-control" placeholder="Nhập tin nhắn..." onkeypress="handleEnter(event)">
+                                    <button class="btn btn-primary" onclick="sendMessage()">Gửi</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script>
+    // === TỰ ĐỘNG CẤU HÌNH TỪ MÔI TRƯỜNG ===
+    const myUrl = window.location.origin; // Tự động lấy http://localhost:8001
+    const myPort = window.location.port;
+    
+    // Hàm lấy cookie tiện ích
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+    }
+
+    // Khởi tạo ban đầu
+    // Khởi tạo ban đầu
+    window.onload = function() {
+        // Gợi ý sẵn một tên theo Port (để bạn đỡ phải gõ nếu lười)
+        // Nhưng bạn hoàn toàn có thể xóa đi nhập tên khác
+        let defaultUser = "user_" + myPort; 
+        
+        document.getElementById('myUsername').value = defaultUser;
+        document.getElementById('myPort').value = myPort;
+        document.getElementById('serverInfoBadge').innerText = `Running on: ${myUrl}`;
+        
+        // Tự động bật polling tin nhắn
+        setInterval(fetchMessages, 3000);
+    };
+    // --- 1. ĐĂNG KÝ TRACKER ---
+    async function registerToTracker() {
+        // [QUAN TRỌNG] Lấy giá trị tên mà bạn vừa nhập tay
+        const username = document.getElementById('myUsername').value.trim();
+        const port = document.getElementById('myPort').value;
+        const tracker = document.getElementById('trackerUrl').value;
+
+        if(!username || !port) return alert("Vui lòng nhập Username!");
+
+        // [FIX] Lưu tên bạn vừa nhập vào Cookie để Backend đọc được
+        // Lưu ý: Vì chạy trên localhost, cái này có thể ghi đè cookie của tab kia
+        // nên hãy bấm nút này mỗi khi chuyển tab chat.
+        document.cookie = `username=${username}; path=/; max-age=86400`;
+
+        const payload = {
+            username: username,
+            ip: "127.0.0.1",
+            port: parseInt(port)
+        };
+
+        try {
+            const res = await fetch(`${tracker}/submit-info`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            if(res.ok) {
+                logSystem(`Đã báo danh: ${username} (Port ${port})`);
+                getPeerList(); 
+            } else {
+                const err = await res.json();
+                alert("Lỗi đăng ký: " + JSON.stringify(err));
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Lỗi gọi Tracker!");
+        }
+    }
+
+    // --- 2. LẤY DANH SÁCH PEER ---
+    async function getPeerList() {
+        const tracker = document.getElementById('trackerUrl').value;
+        const myUser = document.getElementById('myUsername').value;
+
+        try {
+            const res = await fetch(`${tracker}/get-list`);
+            const peers = await res.json();
+            
+            const list = document.getElementById('peerListDisplay');
+            list.innerHTML = "";
+            
+            peers.forEach(p => {
+                // Không hiện chính mình
+                if (p.port == myPort) return;
+
+                const li = document.createElement('li');
+                li.className = "list-group-item d-flex justify-content-between align-items-center";
+                li.innerHTML = `
+                    <div>
+                        <span class="fw-bold text-primary">${p.username}</span>
+                        <br><small style="font-size:0.8em">${p.ip}:${p.port}</small>
+                    </div>
+                    <button class="btn btn-sm btn-outline-dark" 
+                        onclick="prefillConnect('${p.username}', '${p.ip}', ${p.port})">Chat</button>
+                `;
+                list.appendChild(li);
+            });
+        } catch (e) {
+            console.error("Lỗi lấy danh sách:", e);
+        }
+    }
+
+    function prefillConnect(user, ip, port) {
+        document.getElementById('connectUsername').value = user;
+        document.getElementById('connectIP').value = ip;
+        document.getElementById('connectPort').value = port;
+        
+        // Điền luôn vào ô gửi tin
+        document.getElementById('targetName').value = user;
+        document.getElementById('msgType').value = 'private';
+        
+        // Highlight nhẹ để người dùng biết
+        document.getElementById('connectUsername').focus();
+    }
+
+    // --- 3. KẾT NỐI P2P ---
+    async function connectPeer() {
+        const user = document.getElementById('connectUsername').value;
+        const ip = document.getElementById('connectIP').value;
+        const port = document.getElementById('connectPort').value;
+
+        const payload = {
+            username: user,
+            ip: ip,
+            port: parseInt(port)
+        };
+
+        try {
+            // Gọi Backend của chính mình (myUrl)
+            const res = await fetch(`${myUrl}/connect-peer`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(payload)
+            });
+            
+            const data = await res.json();
+            if(res.ok) {
+                logSystem(`Handshake OK với ${user}. Sẵn sàng chat!`);
+            } else {
+                logSystem(`Lỗi Handshake: ${data.body}`);
+            }
+        } catch (e) {
+            logSystem(`Lỗi kết nối: ${e}`);
+        }
+    }
+
+    // --- 4. GỬI TIN NHẮN ---
+    async function sendMessage() {
+        const type = document.getElementById('msgType').value;
+        const target = document.getElementById('targetName').value;
+        const msgInput = document.getElementById('messageInput');
+        const msg = msgInput.value;
+        const myUser = document.getElementById('myUsername').value;
+
+        if(!msg) return;
+
+        let endpoint = "";
+        let payload = {};
+
+        if (type === 'private') {
+            endpoint = "/send-private";
+            payload = { target_user: target, message: msg };
+        } else if (type === 'channel') {
+            endpoint = "/send-channel";
+            payload = { channel: target, message: msg };
+        } else if (type === 'broadcast') {
+            endpoint = "/broadcast-peer";
+            payload = { username: myUser, message: msg };
+        }
+
+        try {
+            const res = await fetch(`${myUrl}${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if(res.ok) {
+                // Hiển thị tin nhắn UI
+                let displayMsg = msg;
+                if(type === 'channel') displayMsg = `[${target}] ${msg}`;
+                if(type === 'broadcast') displayMsg = `[BROADCAST] ${msg}`;
+                
+                appendMessage("Tôi", displayMsg, "out");
+                msgInput.value = ""; // Xóa ô nhập
+            } else {
+                const err = await res.json();
+                alert("Gửi thất bại: " + (err.body || "Lỗi mạng"));
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    // --- 5. NHẬN TIN NHẮN ---
+    async function fetchMessages() {
+        try {
+            const res = await fetch(`${myUrl}/get-messages`);
+            if(res.ok) {
+                const data = await res.json();
+                if(Array.isArray(data) && data.length > 0) {
+                    data.forEach(item => {
+                        appendMessage(item.from, item.message, "in");
+                    });
+                }
+            }
+        } catch (e) {
+            // Lỗi mạng hoặc server chưa sẵn sàng, bỏ qua
+        }
+    }
+
+    // --- 6. CHANNEL ---
+    async function joinChannel() {
+        const channel = document.getElementById('channelName').value;
+        if(!channel) return;
+
+        try {
+            const res = await fetch(`${myUrl}/join-channel`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channel: channel })
+            });
+            if(res.ok) {
+                logSystem(`Đã vào kênh: ${channel}`);
+                // Thêm vào danh sách UI
+                const ul = document.getElementById('myChannels');
+                // Tránh trùng lặp UI
+                if (![...ul.children].some(li => li.innerText === channel)) {
+                    const li = document.createElement('li');
+                    li.className = "list-group-item list-group-item-action";
+                    li.innerText = channel;
+                    li.style.cursor = "pointer";
+                    li.onclick = () => {
+                        document.getElementById('targetName').value = channel;
+                        document.getElementById('msgType').value = 'channel';
+                    };
+                    ul.appendChild(li);
+                }
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    // --- TIỆN ÍCH ---
+    function appendMessage(sender, text, direction) {
+        const box = document.getElementById('chatWindow');
+        const div = document.createElement('div');
+        div.className = direction === 'in' ? 'message-in mb-2' : 'message-out mb-2';
+        
+        const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        
+        // Style tin nhắn cho đẹp hơn
+        const bubbleColor = direction === 'in' ? '#e9ecef' : '#d1e7dd';
+        const alignClass = direction === 'in' ? 'text-start' : 'text-end';
+        
+        div.innerHTML = `
+            <div class="${alignClass}">
+                <small class="text-muted" style="font-size:0.75rem">${sender} • ${time}</small>
+                <div style="background:${bubbleColor}; display:inline-block; padding:5px 10px; border-radius:10px; max-width:80%;">
+                    ${text}
+                </div>
+            </div>
+        `;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function logSystem(text) {
+        const box = document.getElementById('chatWindow');
+        const div = document.createElement('div');
+        div.className = 'system-msg text-center my-2';
+        div.innerHTML = `<small>--- ${text} ---</small>`;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function toggleTargetInput() {
+        const type = document.getElementById('msgType').value;
+        const targetInput = document.getElementById('targetName');
+        targetInput.disabled = (type === 'broadcast');
+        if(type === 'broadcast') targetInput.placeholder = "(Gửi tất cả)";
+        else if(type === 'channel') targetInput.placeholder = "Tên Kênh";
+        else targetInput.placeholder = "Username người nhận";
+    }
+
+    function handleEnter(e) {
+        if(e.key === 'Enter') sendMessage();
+    }
+</script>
+
 </body>
 </html>

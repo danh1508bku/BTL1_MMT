@@ -1,0 +1,18 @@
+[IN] user1: Hello from user1!
+[OUT] user1: Hello from user1!
+[IN] user1: [BROADCAST] Hello everyone!
+[OUT] user1: [BROADCAST] Hello everyone!
+[IN] Alice: Hello Bob, đây là tin nhắn bí mật!
+[OUT] Alice: Hello Bob, đây là tin nhắn bí mật!
+[IN] user_8001: helo
+[OUT] user_8001: helo
+[IN] user_8002: hi
+[OUT] user_8002: hi
+[IN] user_8001: [BROADCAST] hallu
+[OUT] user_8001: [BROADCAST] hallu
+[IN] user_8003: [BROADCAST] heheheheh
+[OUT] user_8003: [BROADCAST] heheheheh
+[IN] user_8003: [BROADCAST] hahaha
+[OUT] user_8003: [BROADCAST] hahaha
+[IN] user_8003: [BROADCAST] hahaha
+[OUT] user_8003: [BROADCAST] hahaha

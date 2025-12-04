@@ -42,31 +42,34 @@ my_connect_peers = {}
 INBOX = []
 inbox_lock = threading.Lock()
 
-@app.route('/login', methods=['POST'])
-def login(headers="guest", body="anonymous"):
-    """
-    Handle user login via POST request.
+channels_lock = threading.Lock()
+user_channels = {} 
 
-    This route simulates a login process and prints the provided headers and body
-    to the console.
+# @app.route('/login', methods=['POST'])
+# def login(headers="guest", body="anonymous"):
+#     """
+#     Handle user login via POST request.
 
-    :param headers (str): The request headers or user identifier.
-    :param body (str): The request body or login payload.
-    """
-    print( "[SampleApp] Logging in {} to {}").format(headers, body)
+#     This route simulates a login process and prints the provided headers and body
+#     to the console.
 
-@app.route('/hello', methods=['PUT'])
-def hello(headers, body):
-    """
-    Handle greeting via PUT request.
+#     :param headers (str): The request headers or user identifier.
+#     :param body (str): The request body or login payload.
+#     """
+#     print( "[SampleApp] Logging in {} to {}").format(headers, body)
 
-    This route prints a greeting message to the console using the provided headers
-    and body.
+# @app.route('/hello', methods=['PUT'])
+# def hello(headers, body):
+#     """
+#     Handle greeting via PUT request.
 
-    :param headers (str): The request headers or user identifier.
-    :param body (str): The request body or message payload.
-    """
-    print("[SampleApp] ['PUT'] Hello in {} to {}").format(headers, body)
+#     This route prints a greeting message to the console using the provided headers
+#     and body.
+
+#     :param headers (str): The request headers or user identifier.
+#     :param body (str): The request body or message payload.
+#     """
+#     print("[SampleApp] ['PUT'] Hello in {} to {}").format(headers, body)
 
 @app.route('/connect-peer', methods=['POST'])
 def connect_peer(headers=None, body=None, cookies=None, client_addr=None):
@@ -285,8 +288,156 @@ def store_message(direction, from_user, message):
     with open(filename, "a", encoding="utf-8") as f:
         f.write(f"[{direction.upper()}] {from_user}: {message}\n")
 
-options_routes = ['/login', '/hello','/connect-peer','/send-private',
-                  '/send-peer','/get-messages','/broadcast_peer']
+@app.route('/create-channel', methods=['POST'])
+def create_channel(headers=None, body=None, cookies=None, client_addr=None):
+    """
+    Tạo channel mới và auto join người gọi vào channel.
+    Body JSON: {"channel": "room1"}
+    """
+    try:
+        username = cookies.get('username')
+        if not username:
+            return {'status': 401, 'body': '{"Error": "Not authenticated"}'}
+
+        data = json.loads(body)
+        channel = data.get('channel')
+
+        if not channel:
+            return {'status': 400, 'body': '{"Error": "Missing channel name"}'}
+
+        with channels_lock:
+            if username not in user_channels:
+                user_channels[username] = set()
+            user_channels[username].add(channel)
+
+        return {
+            'status': 200,
+            'body': json.dumps({"Message": "Channel created & joined", "channel": channel})
+        }
+
+    except json.JSONDecodeError:
+        return {'status': 400, 'body': '{"Error": "Invalid JSON"}'}
+    except Exception:
+        return {'status': 500, 'body': '{"Error": "Internal Server Error"}'}
+
+
+@app.route('/join-channel', methods=['POST'])
+def join_channel(headers=None, body=None, cookies=None, client_addr=None):
+    """
+    Join vào một channel đã có.
+    Body JSON: {"channel": "room1"}
+    """
+    try:
+        username = cookies.get('username')
+        if not username:
+            return {'status': 401, 'body': '{"Error": "Not authenticated"}'}
+
+        data = json.loads(body)
+        channel = data.get('channel')
+
+        if not channel:
+            return {'status': 400, 'body': '{"Error": "Missing channel name"}'}
+
+        with channels_lock:
+            if username not in user_channels:
+                user_channels[username] = set()
+            user_channels[username].add(channel)
+
+        return {
+            'status': 200,
+            'body': json.dumps({"Message": "Joined channel", "channel": channel})
+        }
+
+    except json.JSONDecodeError:
+        return {'status': 400, 'body': '{"Error": "Invalid JSON"}'}
+    except Exception:
+        return {'status': 500, 'body': '{"Error": "Internal Server Error"}'}
+
+
+@app.route('/list-channels', methods=['GET'])
+def list_channels(headers=None, body=None, cookies=None, client_addr=None):
+    """
+    Trả về danh sách channel mà user hiện tại đã join.
+    """
+    username = cookies.get('username')
+    if not username:
+        return {'status': 401, 'body': '{"Error": "Not authenticated"}'}
+
+    with channels_lock:
+        channels_for_user = list(user_channels.get(username, set()))
+
+    return {
+        'status': 200,
+        'body': json.dumps({"channels": channels_for_user}),
+        'content_type': 'application/json'
+    }
+
+
+@app.route('/send-channel', methods=['POST'])
+def send_channel(headers=None, body=None, cookies=None, client_addr=None):
+    """
+    Gửi message theo channel: broadcast tới tất cả peers đã connect.
+    Body JSON: {"channel": "room1", "message": "hello"}
+    """
+    try:
+        username = cookies.get('username')
+        if not username:
+            return {'status': 401, 'body': '{"Error": "Not authenticated"}'}
+
+        data = json.loads(body)
+        channel = data.get('channel')
+        message = data.get('message')
+
+        if not channel or not message:
+            return {'status': 400, 'body': '{"Error": "Missing channel or message"}'}
+
+        # Check user đã join channel chưa
+        with channels_lock:
+            if username not in user_channels or channel not in user_channels[username]:
+                return {'status': 403, 'body': '{"Error": "User not in channel"}'}
+
+        # Message có prefix channel: [room1] username: message
+        final_msg = f"[{channel}] {username}: {message}"
+
+        # Lưu local luôn cho UI hiển thị message mình gửi
+        with inbox_lock:
+            INBOX.append({"from": username, "message": final_msg})
+            store_message("out", username, final_msg)
+
+        # Gửi tới tất cả peers đã connect
+        with peers_lock:
+            peers_to_remove = []
+            for target_user, (peer_ip, peer_port) in list(my_connect_peers.items()):
+                success = send_to_peer(
+                    username, peer_ip, peer_port, target_user, final_msg
+                )
+                if not success:
+                    peers_to_remove.append(target_user)
+
+            # Có thể xoá peers chết nếu muốn
+            for u in peers_to_remove:
+                my_connect_peers.pop(u, None)
+
+        return {'status': 200, 'body': '{"Message": "Channel message sent"}'}
+
+    except json.JSONDecodeError:
+        return {'status': 400, 'body': '{"Error": "Invalid JSON"}'}
+    except Exception:
+        return {'status': 500, 'body': '{"Error": "Internal Server Error"}'}
+
+options_routes = [
+    '/login', '/hello',
+    '/connect-peer',
+    '/send-private',
+    '/send-peer',
+    '/get-messages',
+    '/broadcast-peer',
+    '/create-channel',
+    '/join-channel',
+    '/list-channels',
+    '/send-channel',
+]
+
 
 for route in options_routes:
     app.route(route, methods=['OPTIONS'])(handle_options)

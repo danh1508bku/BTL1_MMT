@@ -290,13 +290,15 @@ class Response():
         """
         Standard response header builder
         """
+        # Mặc định 200 OK
         status_line = "HTTP/1.1 200 OK"
 
+        # Thiết lập các header CORS quan trọng
         self.headers["Access-Control-Allow-Origin"] = "*"
         self.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
         self.headers["Access-Control-Allow-Headers"] = "Content-Type"
         
-     
+        # Xử lý Status Code
         if self.unauthorized:
             status_line = "HTTP/1.1 401 Unauthorized"
             self.status_code = 401
@@ -304,16 +306,27 @@ class Response():
             status_line = "HTTP/1.1 404 Not Found"
         elif self.status_code == 500:
             status_line = "HTTP/1.1 500 Internal Server Error"
+        elif self.status_code == 204: # Thêm case cho OPTIONS
+            status_line = "HTTP/1.1 204 No Content"
+        elif self.status_code == 302:
+            status_line = "HTTP/1.1 302 Found"
         else:
             self.status_code = 200
 
-        header_lines = [
-            status_line,
-            "Content-Type: {}".format(self.headers.get("Content-Type", "text/html")),
-            "Content-Length: {}".format(len(self._content)),
-            "Cache-Control: no-cache",
-            "Connection: close",
-        ]
+        # --- [FIX BUG TẠI ĐÂY] ---
+        # Phải đưa các header từ self.headers vào danh sách gửi đi
+        header_lines = [status_line]
+        
+        # 1. Thêm Content-Type và Length mặc định nếu chưa có
+        if "Content-Type" not in self.headers:
+            self.headers["Content-Type"] = "text/html"
+        self.headers["Content-Length"] = str(len(self._content))
+        self.headers["Cache-Control"] = "no-cache"
+        self.headers["Connection"] = "close"
+
+        # 2. Vòng lặp quan trọng: Đưa tất cả header (bao gồm CORS) vào message
+        for key, value in self.headers.items():
+            header_lines.append("{}: {}".format(key, value))
 
         # RFC 7235 - WWW-Authenticate for 401
         if self.unauthorized:
