@@ -109,6 +109,16 @@ def connect_peer(headers=None, body=None, cookies=None, client_addr=None):
                 resp = s.recv(1024)
 
             with peers_lock:
+                # 1. Tìm và xóa những peer cũ có cùng IP/Port nhưng khác username
+                keys_to_remove = []
+                for existing_user, (existing_ip, existing_port) in my_connect_peers.items():
+                    if existing_ip == peer_ip and existing_port == p2p_port:
+                        keys_to_remove.append(existing_user)
+                
+                for k in keys_to_remove:
+                    del my_connect_peers[k] # Xóa tên cũ (ví dụ user_8002)
+
+                # 2. Thêm hoặc cập nhật peer mới (ví dụ Danh)
                 my_connect_peers[username] = (peer_ip, p2p_port)
 
             return {
@@ -396,8 +406,8 @@ def send_channel(headers=None, body=None, cookies=None, client_addr=None):
             if username not in user_channels or channel not in user_channels[username]:
                 return {'status': 403, 'body': '{"Error": "User not in channel"}'}
 
-        # Message có prefix channel: [room1] username: message
-        final_msg = f"[{channel}] {username}: {message}"
+        # Message có prefix channel: [room1] : message
+        final_msg = f"[{channel}] : {message}"
 
         # Lưu local luôn cho UI hiển thị message mình gửi
         with inbox_lock:

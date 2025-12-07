@@ -16,3 +16,37 @@
 [OUT] user_8003: [BROADCAST] hahaha
 [IN] user_8003: [BROADCAST] hahaha
 [OUT] user_8003: [BROADCAST] hahaha
+[IN] user_8002: [BROADCAST] hi
+[OUT] user_8002: [BROADCAST] hi
+[OUT] user_8002: [test] user_8002: helo
+[IN] user_8002: [test] user_8002: helo
+[OUT] user_8002: [test] user_8002: helo
+[OUT] user_8002: [test] user_8002: hi
+[IN] user_8002: [test] user_8002: hi
+[OUT] user_8002: [test] user_8002: hi
+[IN] Thiện: hi
+[OUT] Thiện: hi
+[IN] Thiện: hello
+[OUT] Thiện: hello
+[IN] Danh: hi
+[OUT] Danh: hi
+[IN] Thiện: helo
+[OUT] Thiện: helo
+[OUT] Thiện: [test2] : haha
+[IN] Thiện: [test2] : haha
+[OUT] Thiện: [test2] : haha
+[IN] Thiện: [test2] : haha
+[OUT] Thiện: [test2] : haha
+[IN] Thien: hi
+[OUT] Thien: hi
+[IN] Danh: helo
+[OUT] Danh: helo
+[IN] Danh: hi
+[OUT] Danh: hi
+[IN] Thien: helo
+[OUT] Thien: helo
+[IN] Danh: [BROADCAST] hehe
+[OUT] Danh: [BROADCAST] hehe
+[OUT] Danh: [room1] : test
+[IN] Danh: [room1] : test
+[OUT] Danh: [room1] : test
