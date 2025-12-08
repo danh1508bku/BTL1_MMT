@@ -151,6 +151,7 @@
         
         // Tự động bật polling tin nhắn
         setInterval(fetchMessages, 3000);
+        loadMyChannels();
     };
     // --- 1. ĐĂNG KÝ TRACKER ---
     async function registerToTracker() {
@@ -410,6 +411,33 @@
     function handleEnter(e) {
         if(e.key === 'Enter') sendMessage();
     }
+    // Trong index.html, thêm hàm này vào vùng script
+    async function loadMyChannels() {
+        try {
+            const res = await fetch(`${myUrl}/list-channels`);
+            if (res.ok) {
+                const data = await res.json();
+                const channels = data.channels || [];
+                const ul = document.getElementById('myChannels');
+                ul.innerHTML = ""; // Xóa danh sách cũ
+                
+                channels.forEach(channel => {
+                    const li = document.createElement('li');
+                    li.className = "list-group-item list-group-item-action";
+                    li.innerText = channel;
+                    li.style.cursor = "pointer";
+                    li.onclick = () => {
+                        document.getElementById('targetName').value = channel;
+                        document.getElementById('msgType').value = 'channel';
+                    };
+                    ul.appendChild(li);
+                });
+            }
+        } catch (e) {
+            console.error("Lỗi load channels:", e);
+        }
+    }
+
 </script>
 
 </body>

@@ -199,7 +199,20 @@ def send_peer(headers=None, body=None, cookies=None, client_addr=None):
             # Kiểm tra có phải broadcast hay không
             if from_user == message.split(':')[0].strip('[BROADCAST]'):
                 message = f"[BROADCAST] {message}"
+            if message.startswith("[") and "]" in message:
+                # Tách lấy tên channel từ tin nhắn, ví dụ "[room1]" -> "room1"
+                potential_channel = message.split(']')[0].strip('[')
 
+                is_in_channel = False
+                with channels_lock:
+                    for user, channels in user_channels.items():
+                        if potential_channel in channels:
+                            is_in_channel = True
+                            break
+                
+                if not is_in_channel:
+                    # Nếu không tham gia channel, từ chối nhận tin nhắn này (không lưu vào Inbox)
+                    return {'status': 200, 'body': '{"Message": "Ignored (Not in channel)"}'}
             INBOX.append({"from": from_user, "message": message})
             store_message("in", from_user, message)
 

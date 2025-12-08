@@ -1,4 +1,0 @@
-
-
-GET http://localhost:8002/get-messages
-Content-Type: application/json
