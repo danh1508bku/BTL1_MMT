@@ -4,3 +4,8 @@
 [OUT] danh: [room1] : luv u too
 [IN] danh: [room1] : luv u too
 [OUT] danh: [room1] : luv u too
+[OUT] user_8002: [room1] : hi
+[OUT] user_8002: [room1] : hi
+[OUT] user_8002: [room1] : helo
+[IN] user_8002: [room1] : helo
+[OUT] user_8002: [room1] : helo

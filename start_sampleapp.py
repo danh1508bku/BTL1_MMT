@@ -424,7 +424,7 @@ def send_channel(headers=None, body=None, cookies=None, client_addr=None):
 
         # Lưu local luôn cho UI hiển thị message mình gửi
         with inbox_lock:
-            INBOX.append({"from": username, "message": final_msg})
+            # INBOX.append({"from": username, "message": final_msg})
             store_message("out", username, final_msg)
 
         # Gửi tới tất cả peers đã connect
