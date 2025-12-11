@@ -35,7 +35,7 @@
                 </div>
                 <div class="col-md-4">
                     <label>Địa chỉ Tracker:</label>
-                    <input type="text" id="trackerUrl" class="form-control" value="http://localhost:9000">
+                    <input type="text" id="trackerUrl" class="form-control" value="http://172.20.10.2:9001">
                 </div>
                 <div class="col-md-2 d-flex align-items-end">
                     <button class="btn btn-success w-100" onclick="registerToTracker()">Kích hoạt Online</button>
@@ -152,6 +152,7 @@
         // Tự động bật polling tin nhắn
         setInterval(fetchMessages, 3000);
         loadMyChannels();
+        displayAllCookies();
     };
     // --- 1. ĐĂNG KÝ TRACKER ---
     async function registerToTracker() {
@@ -169,7 +170,7 @@
 
         const payload = {
             username: username,
-            ip: "127.0.0.1",
+            ip: "10.229.173.171",
             port: parseInt(port)
         };
 
@@ -437,8 +438,16 @@
             console.error("Lỗi load channels:", e);
         }
     }
-
+    function displayAllCookies() {
+            // document.cookie returns a single string of all cookies
+            let allCookies = document.cookie; 
+            document.getElementById("cookieOutput").innerHTML = allCookies;
+        }
 </script>
+
+<h2>Your Cookies</h2>
+<!-- Paragraph element to display all cookies -->
+<p id="cookieOutput"></p>
 
 </body>
 </html>
